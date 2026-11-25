@@ -1,0 +1,26 @@
+[
+  {
+    "id": "doc-01",
+    "title": "TechNova Solutions - Company Overview & Services Catalog",
+    "category": "Services",
+    "content": "TechNova Solutions is a premier software engineering and artificial intelligence consultancy. We specialize in four core offerings:\n1. E-Commerce Development: High-converting custom e-commerce stores, Shopify Plus setups, and headless commerce platforms with payment gateway integrations (Razorpay, Stripe, UPI). Pricing starts at ₹45,000 for standard storefronts and up to ₹1,50,000 for enterprise multi-vendor marketplaces. Typical delivery timeline is 3 to 4 weeks.\n2. Custom Web & Mobile Applications: Full-stack SaaS platforms and mobile apps using React, Node.js, Next.js, React Native, and Flutter. Pricing ranges from ₹80,000 to ₹3,50,000 based on feature complexity. Delivery timeline is 4 to 8 weeks.\n3. Autonomous AI Agents & Voice Automation: Custom voice sales agents, support bots, and internal RAG copilots integrated with CRM and telephony. Pricing starts at ₹75,000. Delivery timeline is 2 to 4 weeks.\n4. Cloud & DevOps Infrastructure: Scalable AWS/GCP architecture, Kubernetes orchestration, CI/CD pipelines, and 24/7 monitoring. Pricing starts at ₹60,000."
+  },
+  {
+    "id": "doc-02",
+    "title": "TechNova Solutions - Pricing, Payment Terms & Engagement Models",
+    "category": "Pricing",
+    "content": "TechNova Solutions offers transparent and milestone-based pricing models:\n- Fixed Price Milestone Model: Ideal for well-defined MVPs and e-commerce projects. Payment split: 40% initial deposit on contract signing, 40% upon beta release and User Acceptance Testing (UAT), and 20% upon final production deployment and code handover.\n- Dedicated Team Retainer: For ongoing product scaling. Senior Full-Stack Engineer retainer is ₹1,20,000 per month; AI/ML Specialist retainer is ₹1,60,000 per month.\n- Free Consultation Policy: Every potential client is entitled to a 100% complimentary 30-minute discovery consultation with our technical solution architects to assess technical feasibility and architectural scope.\n- Cancellation & Refund Policy: If a client is unsatisfied within the first 14 days of project kickoff, we provide a full refund minus validated hours logged."
+  },
+  {
+    "id": "doc-03",
+    "title": "TechNova Solutions - SLAs, Warranties & Quality Assurance",
+    "category": "Policies",
+    "content": "Quality Assurance & Post-Launch Support Policies at TechNova Solutions:\n- Warranty Period: All delivered projects include a 30-day comprehensive defect-free warranty covering bug fixes and performance tuning at zero additional cost.\n- Uptime Guarantee: Cloud deployments managed by TechNova guarantee a 99.9% application uptime backed by automated failover.\n- Security Compliance: We strictly adhere to OWASP Top 10 standards, end-to-end data encryption in transit (TLS 1.3) and at rest (AES-256), and GDPR/SOC-2 compliant data handling procedures.\n- Intellectual Property: 100% of source code, repository rights, and IP assets are transferred entirely to the client upon milestone settlement."
+  },
+  {
+    "id": "doc-04",
+    "title": "TechNova Solutions - Frequently Asked Questions & Objection Handling",
+    "category": "FAQs",
+    "content": "Frequently Asked Questions:\nQ: Can you build an e-commerce website within a budget of ₹50,000?\nA: Yes! Our starter e-commerce package is ₹45,000 to ₹60,000, which includes mobile-responsive design, product catalog up to 100 items, secure payment gateway, WhatsApp order notifications, and 30 days of free support.\nQ: How quickly can a project start?\nA: Once the 30-minute discovery call is completed and project scope is confirmed, development begins within 48 to 72 hours.\nQ: Do you sign Non-Disclosure Agreements (NDAs)?\nA: Yes, we sign mutual NDAs before reviewing proprietary client business logic or technical requirements."
+  }
+]
