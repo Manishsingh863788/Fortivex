@@ -209,25 +209,23 @@ class VoiceAgentController {
 
     if (this.onSpeakingChange) this.onSpeakingChange('customer');
 
-    // Sentiment check
-    let sentiment = 'Neutral';
-    try {
-      const sentRes = await api.analyzeSentiment(text);
-      if (sentRes.success) sentiment = sentRes.data.sentiment;
-    } catch (e) {}
-
-    if (this.onTranscript) {
-      this.onTranscript({
-        speaker: 'customer',
-        message: text,
-        timestamp: new Date().toISOString(),
-        sentiment
-      });
-    }
-
-    // Query Backend RAG Engine
+    // ⚡ SPEED FIX: Fire chat request immediately — it now returns sentiment too
+    // No separate sentiment API call needed (saves a full HTTP round-trip)
     try {
       const aiRes = await api.sendChatMessage({ message: text });
+
+      // Extract sentiment from chat response (backend returns both together now)
+      const sentiment = aiRes.success ? (aiRes.data.sentiment || 'Neutral') : 'Neutral';
+
+      if (this.onTranscript) {
+        this.onTranscript({
+          speaker: 'customer',
+          message: text,
+          timestamp: new Date().toISOString(),
+          sentiment
+        });
+      }
+
       if (aiRes.success && aiRes.data.reply) {
         const reply = aiRes.data.reply;
 
@@ -245,6 +243,15 @@ class VoiceAgentController {
       }
     } catch (err) {
       console.error('[WebSpeech AI Query Error]', err);
+      // Show customer message even if AI fails
+      if (this.onTranscript) {
+        this.onTranscript({
+          speaker: 'customer',
+          message: text,
+          timestamp: new Date().toISOString(),
+          sentiment: 'Neutral'
+        });
+      }
     }
   }
 
@@ -279,7 +286,8 @@ class VoiceAgentController {
           this.speechBuffer = piece;
         }
 
-        // Debounce: wait 700ms so the user can finish their complete sentence
+        // ⚡ SPEED FIX: Reduced debounce to 200ms (was 700ms) for faster response
+        // Browser SpeechRecognition already buffers a full sentence before onresult fires
         if (this.speechDebounceTimer) {
           clearTimeout(this.speechDebounceTimer);
         }
@@ -291,7 +299,7 @@ class VoiceAgentController {
           if (fullSentence) {
             this.processUserUtterance(fullSentence);
           }
-        }, 700);
+        }, 200);
       }
     };
 
