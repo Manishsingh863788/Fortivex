@@ -49,6 +49,7 @@ export default function VoiceAgent({ setActivePage }) {
   const [bookingDate, setBookingDate] = useState(new Date().toISOString().split('T')[0]);
   const [availableSlots, setAvailableSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
+  const [manualInput, setManualInput] = useState('');
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
@@ -113,6 +114,24 @@ export default function VoiceAgent({ setActivePage }) {
     } catch (err) {
       setErrorMsg(err.message || 'Failed to start call. Ensure microphone permissions are allowed.');
     }
+  };
+
+  const handleManualSubmit = async (e) => {
+    e.preventDefault();
+    const text = manualInput.trim();
+    if (!text) return;
+    setManualInput('');
+
+    if (callStatus !== 'connected') {
+      try {
+        await voiceAgent.startCall();
+      } catch (err) {
+        voiceAgent.isCallActive = true;
+        setCallStatus('connected');
+      }
+    }
+
+    voiceAgent.processUserUtterance(text);
   };
 
   const handleEndCall = async () => {
@@ -364,6 +383,24 @@ export default function VoiceAgent({ setActivePage }) {
               )}
               <div ref={transcriptEndRef} />
             </div>
+
+            {/* Quick Interactive Input Box (Voice or Type) */}
+            <form onSubmit={handleManualSubmit} className="pt-3 border-t border-slate-800 flex items-center space-x-2 shrink-0">
+              <input
+                type="text"
+                placeholder={callStatus === 'connected' ? "Type a requirement, question, or speak into mic..." : "Type here or click Start Voice Call to test..."}
+                value={manualInput}
+                onChange={(e) => setManualInput(e.target.value)}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-navy-900 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-blue"
+              />
+              <button
+                type="submit"
+                disabled={!manualInput.trim()}
+                className="px-5 py-2.5 rounded-xl bg-brand-blue hover:bg-blue-600 disabled:opacity-40 text-white font-semibold text-xs transition-colors cursor-pointer"
+              >
+                Send
+              </button>
+            </form>
           </div>
         </div>
 

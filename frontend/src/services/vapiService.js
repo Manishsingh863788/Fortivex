@@ -9,12 +9,17 @@ class VoiceAgentController {
     this.recognition = null;
     this.synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
     this.isCallActive = false;
+    this.isAgentSpeaking = false;
     this.startTime = null;
     this.durationTimer = null;
     this.callDuration = 0;
     this.audioContext = null;
     this.analyser = null;
     this.mediaStream = null;
+
+    // Speech buffering and debounce to prevent firing on half-words
+    this.speechBuffer = '';
+    this.speechDebounceTimer = null;
 
     // Event callbacks
     this.onStatusChange = null;
@@ -57,10 +62,12 @@ class VoiceAgentController {
     });
 
     this.vapi.on('speech-start', () => {
+      this.isAgentSpeaking = true;
       if (this.onSpeakingChange) this.onSpeakingChange('agent');
     });
 
     this.vapi.on('speech-end', () => {
+      this.isAgentSpeaking = false;
       if (this.onSpeakingChange) this.onSpeakingChange('idle');
     });
 
@@ -87,7 +94,6 @@ class VoiceAgentController {
     if (this.isCallActive) return;
 
     try {
-      // 1. Request microphone permission
       this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       this._setupAudioAnalyser(this.mediaStream);
 
@@ -98,12 +104,11 @@ class VoiceAgentController {
         if (this.onStatusChange) this.onStatusChange('connecting');
         await this.vapi.start(assistantId);
       } else {
-        // Run with Native Web Speech STT & TTS + Backend RAG pipeline
         if (this.onStatusChange) this.onStatusChange('connected');
         this._startWebSpeechRecognition();
 
         // Initial agent greeting
-        const greeting = onGreeting || "Hello! Welcome to TechNova Solutions. I'm Alex, your AI sales assistant. Are you looking to build an e-commerce website, custom web application, or explore AI solutions?";
+        const greeting = onGreeting || "Hello! Welcome to TechNova Solutions. I'm Alex, your sales assistant. Are you looking to develop an e-commerce platform, a custom web app, or an AI solution?";
         this.speakText(greeting);
         if (this.onTranscript) {
           this.onTranscript({
@@ -127,7 +132,14 @@ class VoiceAgentController {
     if (!this.isCallActive) return;
 
     this.isCallActive = false;
+    this.isAgentSpeaking = false;
     this._stopTimer();
+
+    if (this.speechDebounceTimer) {
+      clearTimeout(this.speechDebounceTimer);
+      this.speechDebounceTimer = null;
+    }
+    this.speechBuffer = '';
 
     if (this.activeMode === 'vapi' && this.vapi) {
       try { this.vapi.stop(); } catch (e) { console.warn(e); }
@@ -160,31 +172,80 @@ class VoiceAgentController {
     if (!this.synth) return;
     this.synth.cancel(); // Stop any pending speech
 
+    this.isAgentSpeaking = true;
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 1.0;
     utterance.pitch = 1.0;
     utterance.lang = 'en-US';
 
-    // Try selecting a natural sounding English voice
     const voices = this.synth.getVoices();
     const naturalVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('David') || v.name.includes('Samantha')));
     if (naturalVoice) utterance.voice = naturalVoice;
 
     utterance.onstart = () => {
+      this.isAgentSpeaking = true;
       if (this.onSpeakingChange) this.onSpeakingChange('agent');
     };
 
     utterance.onend = () => {
+      this.isAgentSpeaking = false;
       if (this.onSpeakingChange) this.onSpeakingChange('idle');
       if (onComplete) onComplete();
     };
 
     utterance.onerror = (e) => {
       console.warn('SpeechSynthesis error:', e);
+      this.isAgentSpeaking = false;
       if (this.onSpeakingChange) this.onSpeakingChange('idle');
     };
 
     this.synth.speak(utterance);
+  }
+
+  // Unified utterance processor (handles both voice and text input)
+  async processUserUtterance(rawText) {
+    const text = rawText.trim();
+    if (!text || !this.isCallActive) return;
+
+    if (this.onSpeakingChange) this.onSpeakingChange('customer');
+
+    // Sentiment check
+    let sentiment = 'Neutral';
+    try {
+      const sentRes = await api.analyzeSentiment(text);
+      if (sentRes.success) sentiment = sentRes.data.sentiment;
+    } catch (e) {}
+
+    if (this.onTranscript) {
+      this.onTranscript({
+        speaker: 'customer',
+        message: text,
+        timestamp: new Date().toISOString(),
+        sentiment
+      });
+    }
+
+    // Query Backend RAG Engine
+    try {
+      const aiRes = await api.sendChatMessage({ message: text });
+      if (aiRes.success && aiRes.data.reply) {
+        const reply = aiRes.data.reply;
+
+        if (this.onTranscript) {
+          this.onTranscript({
+            speaker: 'agent',
+            message: reply,
+            timestamp: new Date().toISOString(),
+            sentiment: 'Positive',
+            retrieved_chunks: aiRes.data.retrieved_chunks
+          });
+        }
+
+        this.speakText(reply);
+      }
+    } catch (err) {
+      console.error('[WebSpeech AI Query Error]', err);
+    }
   }
 
   _startWebSpeechRecognition() {
@@ -203,50 +264,34 @@ class VoiceAgentController {
       console.log('[WebSpeech] Recognition active');
     };
 
-    this.recognition.onresult = async (event) => {
+    this.recognition.onresult = (event) => {
+      // Don't listen to computer speakers when agent is actively speaking
+      if (this.isAgentSpeaking) return;
+
       const current = event.resultIndex;
-      const transcript = event.results[current][0].transcript.trim();
+      const piece = event.results[current][0].transcript.trim();
 
-      if (transcript && this.isCallActive) {
-        if (this.onSpeakingChange) this.onSpeakingChange('customer');
-
-        // Analyze sentiment of customer phrase
-        let sentiment = 'Neutral';
-        try {
-          const sentRes = await api.analyzeSentiment(transcript);
-          if (sentRes.success) sentiment = sentRes.data.sentiment;
-        } catch (e) {}
-
-        if (this.onTranscript) {
-          this.onTranscript({
-            speaker: 'customer',
-            message: transcript,
-            timestamp: new Date().toISOString(),
-            sentiment
-          });
+      if (piece && this.isCallActive) {
+        // Append to speech buffer
+        if (this.speechBuffer) {
+          this.speechBuffer += ' ' + piece;
+        } else {
+          this.speechBuffer = piece;
         }
 
-        // Query Backend RAG AI for context-aware reply
-        try {
-          const aiRes = await api.sendChatMessage({ message: transcript });
-          if (aiRes.success && aiRes.data.reply) {
-            const reply = aiRes.data.reply;
+        // Debounce: wait 700ms so the user can finish their complete sentence
+        if (this.speechDebounceTimer) {
+          clearTimeout(this.speechDebounceTimer);
+        }
 
-            if (this.onTranscript) {
-              this.onTranscript({
-                speaker: 'agent',
-                message: reply,
-                timestamp: new Date().toISOString(),
-                sentiment: 'Positive',
-                retrieved_chunks: aiRes.data.retrieved_chunks
-              });
-            }
-
-            this.speakText(reply);
+        this.speechDebounceTimer = setTimeout(() => {
+          const fullSentence = this.speechBuffer.trim();
+          this.speechBuffer = '';
+          this.speechDebounceTimer = null;
+          if (fullSentence) {
+            this.processUserUtterance(fullSentence);
           }
-        } catch (err) {
-          console.error('[WebSpeech AI Query Error]', err);
-        }
+        }, 700);
       }
     };
 
@@ -255,7 +300,6 @@ class VoiceAgentController {
     };
 
     this.recognition.onend = () => {
-      // Auto-restart recognition if call is still active
       if (this.isCallActive && this.recognition) {
         try { this.recognition.start(); } catch (e) {}
       }
